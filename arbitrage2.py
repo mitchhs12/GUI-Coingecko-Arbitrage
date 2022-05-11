@@ -9,8 +9,8 @@ import tkinter as tk
 historic_data = []
 profit_threshold = 300 #Given so as to remove data outliers (expressed as a percentage e.g. 100 will remove profits > 100%)
 volume_threshold = 1000000 #Given in USD to remove low volume trades
-target = 'USDT' #set to '0' if no coin pair target is specified
-pages = 2 #how many pages for each cryptocurrency are needed
+target = 'LINK' #set to '0' if no coin pair target is specified
+pages = 1 #how many pages for each cryptocurrency are needed
 
 
 # --- functions ---
