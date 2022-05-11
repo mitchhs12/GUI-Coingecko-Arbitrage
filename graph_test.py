@@ -3,8 +3,9 @@ import pandas as pd
 import pandas_datareader as pdr
 import plotly.graph_objects as go
 
-CRYPTO = 'LINK'
-CURRENCY = 'USD'
+CRYPTO = "LINK"
+CURRENCY = "USD"
+
 
 def getData(cryptocurrency):
     now = datetime.now()
@@ -14,45 +15,46 @@ def getData(cryptocurrency):
     start = pd.to_datetime(last_year_date)
     end = pd.to_datetime(current_date)
 
-    data = pdr.get_data_yahoo(f'{cryptocurrency}-{CURRENCY}', start, end)
+    data = pdr.get_data_yahoo(f"{cryptocurrency}-{CURRENCY}", start, end)
 
     return data
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     crypto_data = getData(CRYPTO)
 
     # Candlestick
     fig = go.Figure(
-        data = [
+        data=[
             go.Candlestick(
-                x = crypto_data.index,
-                open = crypto_data.Open,
-                high = crypto_data.High,
-                low = crypto_data.Low,
-                close = crypto_data.Close
+                x=crypto_data.index,
+                open=crypto_data.Open,
+                high=crypto_data.High,
+                low=crypto_data.Low,
+                close=crypto_data.Close,
             ),
             go.Scatter(
-                x = crypto_data.index, 
-                y = crypto_data.Close.rolling(window=20).mean(),
-                mode = 'lines', 
-                name = '20SMA',
-                line = {'color': '#ff006a'}
+                x=crypto_data.index,
+                y=crypto_data.Close.rolling(window=20).mean(),
+                mode="lines",
+                name="20SMA",
+                line={"color": "#ff006a"},
             ),
             go.Scatter(
-                x = crypto_data.index, 
-                y = crypto_data.Close.rolling(window=50).mean(),
-                mode = 'lines', 
-                name = '50SMA',
-                line = {'color': '#1900ff'}
-            )
+                x=crypto_data.index,
+                y=crypto_data.Close.rolling(window=50).mean(),
+                mode="lines",
+                name="50SMA",
+                line={"color": "#1900ff"},
+            ),
         ]
     )
 fig.update_layout(
-    title = f'The Candlestick graph for {CRYPTO}',
-    xaxis_title = 'Date',
-    yaxis_title = f'Price ({CURRENCY})',
-    xaxis_rangeslider_visible = False
+    title=f"The Candlestick graph for {CRYPTO}",
+    xaxis_title="Date",
+    yaxis_title=f"Price ({CURRENCY})",
+    xaxis_rangeslider_visible=False,
 )
-fig.update_yaxes(tickprefix='$')
+fig.update_yaxes(tickprefix="$")
 
 fig.show()
