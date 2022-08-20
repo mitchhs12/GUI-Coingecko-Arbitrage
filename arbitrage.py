@@ -10,7 +10,7 @@ import tkinter as tk
 historic_data = []
 profit_threshold = 200  # Given so as to remove data outliers (expressed as a percentage e.g. 100 will remove profits > 100%)
 volume_threshold = 1000000  # Given in USD to remove low volume trades
-target = "LINK"  # set to '0' if no coin pair target is specified
+target = "USDT"  # set to '0' if no coin pair target is specified
 pages = 1  # how many pages for each cryptocurrency are needed
 
 
@@ -56,7 +56,7 @@ def call(coin_ticker):
             df2.reset_index(drop=True, inplace=True)
             df = pd.concat([df, df2])
             df.reset_index(drop=True, inplace=True)
-            time.sleep(7)
+            time.sleep(10)
     return df
 
 
@@ -129,7 +129,7 @@ def profit_maximiser():
         profit_margin = summary_statistics(df)
         profit_list.append(profit_margin[0])
         stats_list.append(profit_margin[1])
-        time.sleep(1 * pages)  # otherwise I have to pay for Coingecko
+        time.sleep(10 * pages)  # otherwise I have to pay for Coingecko
     combined_dictionary = {"Coin Ticker": list_of_coins, "Expected Profit": profit_list}
     stats_dictionary = {
         "Marketcap Rank": [item for item in range(1, 101)],
