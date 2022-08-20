@@ -1,31 +1,31 @@
 import numpy as np
 import pandas as pd
 from pandastable import Table, TableModel
-from pycoingecko import CoinGeckoAPI
+from coingeckopremium_test.api import CoinGeckoAPI
 
 cg = CoinGeckoAPI()
-import time
 import tkinter as tk
 
-historic_data = []
-profit_threshold = 200  # Given so as to remove data outliers (expressed as a percentage e.g. 100 will remove profits > 100%)
-volume_threshold = 1000000  # Given in USD to remove low volume trades
-target = "USDT"  # set to '0' if no coin pair target is specified
-pages = 1  # how many pages for each cryptocurrency are needed
+HISTORIC_DATA = []
+PROFIT_THRESHOLD = 1000  # Given so as to remove data outliers (expressed as a percentage e.g. 100 will remove profits > 100%)
+VOLUME_THRESHOLD = 100000  # Given in USD to remove low volume trades
+TARGET_CURRENCY = "USD"  # set to '0' if no coin pair target is specified
+PAGES_QUERY = 5  # how many pages for each cryptocurrency are needed
+EXCHANGES_QUERY = []  # exchange id (make it [] to search all exchanges)
 
 
 # --- functions ---
 
 
 def append(df, g):
-    historic_data.append(df)
+    HISTORIC_DATA.append(df)
     if g == True:
-        return historic_data
+        return HISTORIC_DATA
     if g == False:
-        del historic_data[
-            (len(historic_data) - ((len(historic_data) - 1))) : (len(historic_data) - 1)
+        del HISTORIC_DATA[
+            (len(HISTORIC_DATA) - ((len(HISTORIC_DATA) - 1))) : (len(HISTORIC_DATA) - 1)
         ]
-        return historic_data
+        return HISTORIC_DATA
 
 
 def btn_update():  # reruns app
@@ -33,49 +33,72 @@ def btn_update():  # reruns app
     pt.redraw()
 
 
-def call(coin_ticker):
+# returns a data frame of all the pairs of the top 100 on the given exchanges
+def exchanges_loop(coin_ticker):
+    df_exchange = call(coin_ticker, EXCHANGES_QUERY[0])
+    for e in range(len(EXCHANGES_QUERY))[1:]:
+        df_exchange_1 = call(coin_ticker, EXCHANGES_QUERY[e])
+        if not df_exchange_1.empty:
+            df_exchange = pd.concat([df_exchange, df_exchange_1])
+            df_exchange.reset_index(drop=True, inplace=True)
+    return df_exchange
+
+
+def call(coin_ticker, exchange):
     amount_per_page = 100
-    pairs = amount_per_page * pages
-    call = int((pairs - pairs % amount_per_page) / amount_per_page) + 1
-    list_of_coins = cg.get_coin_ticker_by_id(id=coin_ticker, page=1)
-    list_of_coins = list_of_coins.get("tickers")
-    list = list_of_coins
-    df = pd.DataFrame(list)
-    print("Getting page:", 1)
-    for q in range(
-        call - 1
-    ):  # needs to be (call-1) because we already have the first page
-        strung = str(q + 2)
-        list2 = cg.get_coin_ticker_by_id(id=coin_ticker, page=strung)
-        list2 = list2.get("tickers")
-        if (list2 == []) or (int(strung) > pairs / amount_per_page):
-            break
+    pairs = amount_per_page * PAGES_QUERY
+    call = int((pairs - pairs % amount_per_page) / amount_per_page)
+    for q in range(call):
+        if q < 1:
+            df0 = call_cg(coin_ticker, q, exchange)
+            df2 = df0
         else:
-            print("Getting page:", strung)
-            df2 = pd.DataFrame(list2)
-            df2.reset_index(drop=True, inplace=True)
-            df = pd.concat([df, df2])
-            df.reset_index(drop=True, inplace=True)
-            time.sleep(10)
+            df = call_cg(coin_ticker, q, exchange)
+            if len(df) == amount_per_page:  # has 100 pages
+                df2 = pd.concat([df2, df])
+                df2.reset_index(drop=True, inplace=True)
+            elif len(df) > 0:
+                df2 = pd.concat([df2, df])  # is the last page
+                df2.reset_index(drop=True, inplace=True)
+                break
+            else:
+                break
+    return df2
+
+
+def call_cg(coin_ticker, q, exchange):
+    if exchange:
+        list_of_coins = cg.get_coin_ticker_by_id(
+            id=coin_ticker, page=q, exchange_ids=exchange
+        )
+    else:
+        list_of_coins = cg.get_coin_ticker_by_id(id=coin_ticker, page=q)
+    list_of_coins = list_of_coins.get("tickers")
+    df = pd.DataFrame(list_of_coins)
+    print("Got page:", q)
     return df
 
 
 def df_loop():
-    df = call(coin_ticker)
-    df = format_columns(df, coin_ticker)
+    if EXCHANGES_QUERY:
+        df = exchanges_loop(coin_ticker)
+    else:
+        df = call(coin_ticker, EXCHANGES_QUERY)
+    if not df.empty:
+        df = format_columns(df, coin_ticker)
     summary_statistics(df)
-    historic_data = append(df, True)
-    if historic_data[(len(historic_data) - 1) - 1]["Usd Price"].equals(
-        historic_data[(len(historic_data) - 1)]["Usd Price"]
+    HISTORIC_DATA = append(df, True)
+    if HISTORIC_DATA[(len(HISTORIC_DATA) - 1) - 1]["Usd Price"].equals(
+        HISTORIC_DATA[(len(HISTORIC_DATA) - 1)]["Usd Price"]
     ):
         return df
     else:
         print("PRICES UPDATED")
         summary_statistics(
-            historic_data[(len(historic_data) - 1)]
+            HISTORIC_DATA[(len(HISTORIC_DATA) - 1)]
         )  # summary statistics on last df
-        historic_data = append(df, False)
-        return historic_data[(len(historic_data) - 1)]  # returns last df
+        HISTORIC_DATA = append(df, False)
+        return HISTORIC_DATA[(len(HISTORIC_DATA) - 1)]  # returns last df
 
 
 def format_columns(df, coin_ticker):
@@ -120,19 +143,23 @@ def isolate_column(
 
 def profit_maximiser():
     list_of_coins = get_coin_list(cg.get_coins_markets("usd"))
+    print("RUNNING_PROFIT_MAXIMISER")
     profit_list = []
     stats_list = []
     for coin_ticker in list_of_coins:
         print("COIN ID:", coin_ticker)
-        df = call(coin_ticker)
-        df = format_columns(df, coin_ticker)
-        profit_margin = summary_statistics(df)
-        profit_list.append(profit_margin[0])
-        stats_list.append(profit_margin[1])
-        time.sleep(10 * pages)  # otherwise I have to pay for Coingecko
+        if EXCHANGES_QUERY:
+            df = exchanges_loop(coin_ticker)
+        else:
+            df = call(coin_ticker, EXCHANGES_QUERY)
+        if not df.empty:
+            df = format_columns(df, coin_ticker)
+        pm1, pm2 = summary_statistics(df)
+        profit_list.append(pm1)
+        stats_list.append(pm2)
     combined_dictionary = {"Coin Ticker": list_of_coins, "Expected Profit": profit_list}
     stats_dictionary = {
-        "Marketcap Rank": [item for item in range(1, 101)],
+        "Marketcap Rank": [item for item in range(1, len(list_of_coins) + 1)],
         "Coin Ticker": list_of_coins,
         "Expected Profit": [item[10] for item in stats_list],
         "Lowest Price": [item[0] for item in stats_list],
@@ -159,24 +186,35 @@ def replace_column(
 
 
 def summary_statistics(df):
+    if df.empty:
+        return empty()
     df.replace(0, np.NaN, inplace=True)
-    if target != "0":
-        if target in df["Target"].values or target in df["Base"].values:
-            df1 = df[df["Target"].str.contains(target)]
-            df2 = df[df["Base"].str.contains(target)]
+    if TARGET_CURRENCY != "0":
+        if (
+            TARGET_CURRENCY in df["Target"].values
+            or TARGET_CURRENCY in df["Base"].values
+        ):
+            df1 = df[df["Target"].str.contains(TARGET_CURRENCY)]
+            df2 = df[df["Base"].str.contains(TARGET_CURRENCY)]
             df = pd.concat([df1, df2]).drop_duplicates().reset_index(drop=True)
             percentage_profit, stats_df = summary_statistics_continue(df)
             return percentage_profit, stats_df
         else:
-            percentage_profit = 0
-            stats_df = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-            return percentage_profit, stats_df
+            return empty()
     else:
         percentage_profit, stats_df = summary_statistics_continue(df)
         return percentage_profit, stats_df
 
 
+def empty():
+    percentage_profit = 0
+    stats_df = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    return percentage_profit, stats_df
+
+
 def summary_statistics_continue(df):
+    if df.empty:
+        return empty()
     min_price = df["Usd Price"].min(skipna=True)  # returns the lowest price
     max_price = df["Usd Price"].max(skipna=True)  # returns the highest price
     index_min = df["Usd Price"].idxmin(
@@ -198,7 +236,7 @@ def summary_statistics_continue(df):
         index_max, "Usd Volume"
     ]  # returns the volume on the exchange that has the highest price
     if min_price != max_price:
-        while (min_price_vol < volume_threshold) or (np.isnan(min_price_vol)):
+        while (min_price_vol < VOLUME_THRESHOLD) or (np.isnan(min_price_vol)):
             if min_price_vol != max_price_vol:
                 if np.isnan(min_price_vol) and np.isnan(max_price_vol):
                     percentage_profit = min_price_vol
@@ -229,7 +267,7 @@ def summary_statistics_continue(df):
                     ]  # returns the exchange with the lowest price
             else:
                 break
-        while (max_price_vol < volume_threshold) or (np.isnan(max_price_vol)):
+        while (max_price_vol < VOLUME_THRESHOLD) or (np.isnan(max_price_vol)):
             if min_price_vol != max_price_vol:
                 if np.isnan(min_price_vol) and np.isnan(max_price_vol):
                     percentage_profit = max_price_vol
@@ -272,7 +310,9 @@ def summary_statistics_continue(df):
     print("The Volume on exchange with the highest price (USD):", max_price_vol)
     percentage_profit = ((max_price - min_price) / min_price) * 100
     print(
-        "Assuming Buy and Sell at the lowest and highest price:", percentage_profit, "%"
+        "Assuming Buy and Sell at the lowest and highest price:",
+        percentage_profit,
+        "%",
     )
     print("Lowest and highest prices are equal:", min_price_vol == max_price_vol)
     stats_df = (
@@ -310,19 +350,19 @@ def tableSelChange(*args):
 # --- Determines the Best Coin with the Best Return ---
 expected_profit_df, stats_df = profit_maximiser()
 expected_profit_df.mask(
-    expected_profit_df["Expected Profit"] >= profit_threshold, np.NaN, inplace=True
+    expected_profit_df["Expected Profit"] >= PROFIT_THRESHOLD, np.NaN, inplace=True
 )
 max_price_profit = expected_profit_df["Expected Profit"].max(skipna=True)
 index = expected_profit_df["Expected Profit"].idxmax(skipna=True)
-print(expected_profit_df)
 print("Maximum price profit: ", max_price_profit, "%")  # print maximum profit %
 coin_ticker = expected_profit_df.at[index, "Coin Ticker"]
 print("For coin: ", coin_ticker)  # print coin ticker
 
 
 # --- Gets the Current Market Data for the Coin with Best Return ---
-tickers_data = call(coin_ticker)
-df = format_columns(tickers_data, coin_ticker)
+tickers_data = call(coin_ticker, EXCHANGES_QUERY)
+if not tickers_data.empty:
+    df = format_columns(tickers_data, coin_ticker)
 summary_statistics(df)
 append(df, True)
 
