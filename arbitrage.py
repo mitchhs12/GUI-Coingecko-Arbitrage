@@ -1,7 +1,11 @@
 import numpy as np
 import pandas as pd
 from pandastable import Table, TableModel
-from coingeckopremium_test.api import CoinGeckoAPI
+import sys
+
+sys.path.append("../")
+from coingeckopremium.api import CoinGeckoAPI
+
 
 cg = CoinGeckoAPI()
 import tkinter as tk
@@ -9,7 +13,7 @@ import tkinter as tk
 HISTORIC_DATA = []
 PROFIT_THRESHOLD = 1000  # Given so as to remove data outliers (expressed as a percentage e.g. 100 will remove profits > 100%)
 VOLUME_THRESHOLD = 100000  # Given in USD to remove low volume trades
-TARGET_CURRENCY = "USD"  # set to '0' if no coin pair target is specified
+TARGET_CURRENCY = "USDT"  # set to '0' if no coin pair target is specified
 PAGES_QUERY = 5  # how many pages for each cryptocurrency are needed
 EXCHANGES_QUERY = []  # exchange id (make it [] to search all exchanges)
 
@@ -75,7 +79,7 @@ def call_cg(coin_ticker, q, exchange):
         list_of_coins = cg.get_coin_ticker_by_id(id=coin_ticker, page=q)
     list_of_coins = list_of_coins.get("tickers")
     df = pd.DataFrame(list_of_coins)
-    print("Got page:", q)
+    print(exchange, "page:", q)
     return df
 
 
@@ -300,14 +304,14 @@ def summary_statistics_continue(df):
                     ]  # Returns the exchange with the highest price
             else:
                 break
-    print("Lowest Price:", min_price, "in:", (df.at[index_min, "Target"]))
-    print("Highest Price:", max_price, "in:", (df.at[index_max, "Target"]))
-    print("Row number with the lowest price:", index_min + 1)
-    print("Row number with the highest price:", index_max + 1)
-    print("Exchange with the lowest price:", min_price_exchange)
-    print("Exchange with the highest price:", max_price_exchange)
-    print("The Volume on exchange with the lowest price (USD):", min_price_vol)
-    print("The Volume on exchange with the highest price (USD):", max_price_vol)
+    print(
+        f"Lowest Price: {min_price} {(df.at[index_min, 'Target'])} (Row:{index_min + 1})"
+    )
+    print(
+        f"Highest Price: {max_price} {(df.at[index_max, 'Target'])} (Row:{index_max + 1})"
+    )
+    print(f"Lowest price on {min_price_exchange} has volume {min_price_vol}")
+    print(f"Highest price on {max_price_exchange} has volume {max_price_vol}")
     percentage_profit = ((max_price - min_price) / min_price) * 100
     print(
         "Assuming Buy and Sell at the lowest and highest price:",
